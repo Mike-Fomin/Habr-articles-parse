@@ -4,6 +4,12 @@ from itertools import cycle
 import aiohttp
 from bs4 import BeautifulSoup
 
+with open("proxy_http_ip.txt", "r") as prx_file:
+    PROXY_LIST = list(map(str.strip, prx_file.readlines()))
+
+category = "python"
+category_url = f"https://habr.com/ru/hub/{category}/"
+
 
 async def parse_category(cat_url, session, prx, page):
     response = await session.get(cat_url, proxy=f"http://{prx}")
@@ -16,9 +22,9 @@ async def parse_category(cat_url, session, prx, page):
     return [(tl.text, f"https://habr.com{tl.find('a').get('href')}") for tl in title_block]
 
 
-async def main(url, proxies):
+async def main():
     async with aiohttp.ClientSession() as session:
-        response = await session.get(url)
+        response = await session.get(category_url)
         resp = await response.text()
 
         # get total pages
@@ -28,8 +34,8 @@ async def main(url, proxies):
 
         # get async tasks
         tasks = []
-        for page, proxy in zip(range(1, pages+1), cycle(proxies)):
-            task = asyncio.ensure_future(parse_category(f"{url}page{page}/", session, proxy, page))
+        for page, proxy in zip(range(1, pages+1), cycle(PROXY_LIST)):
+            task = asyncio.ensure_future(parse_category(f"{category_url}page{page}/", session, proxy, page))
             tasks.append(task)
             await asyncio.sleep(0.2)
         articles = await asyncio.gather(*tasks)
@@ -43,11 +49,5 @@ async def main(url, proxies):
                     i += 1
 
 if __name__ == "__main__":
-    with open("proxy_http_ip.txt", "r") as prx_file:
-        proxy_list = list(map(str.strip, prx_file.readlines()))
-
-    category = "python"
-    category_url = f"https://habr.com/ru/hub/{category}/"
-
-    asyncio.run(main(category_url, proxy_list))
+    asyncio.run(main())
 
